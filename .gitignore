@@ -34,3 +34,6 @@ $RECYCLE.BIN/
 *.xlx
 *.csv
 # End of https://www.toptal.com/developers/gitignore/api/windows
+
+# Folders
+Streamlit_Demo/*
