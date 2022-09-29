@@ -36,15 +36,19 @@ sales_df = load_data("../cleaned_sales_data.csv")
 # Change data types of listed columns
 
 convert_dtypes = {
+        'order_purchase_timestamp': 'datetime64',
+        'order_approved_at': 'datetime64',
+        'order_delivered_customer_date': 'datetime64',
         'customer_city': 'category',
         'customer_state': 'category',
-        'customer_zip_code_prefix': str,
+        'customer_zip_code_prefix': 'str',
         'payment_type': 'category',
         'review_score': 'category',
+        'seller_zip_code_prefix': 'str',
         'seller_city': 'category',
         'seller_state': 'category',
         'order_status' : 'category',
-        'product_category_name': 'category'
+        'product_category_name_english': 'category'
         }
 sales_df = sales_df.astype(convert_dtypes)
 
