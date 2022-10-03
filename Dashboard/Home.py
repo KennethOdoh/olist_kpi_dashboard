@@ -1,5 +1,6 @@
 # import required libraries
 from tkinter.ttk import Style
+from turtle import width
 import pandas as pd
 import numpy as np
 import streamlit as st
@@ -121,7 +122,7 @@ with col21:
     total_canceled_order = total_canceled_order()
     total_canceled_order_last_year = total_canceled_order_last_year()
     st.metric(label='CANCELLED ORDERS', value = "${}".format(millify(total_canceled_order, precision= 2)), 
-    delta= millify(total_canceled_order - total_canceled_order_last_year),
+    delta= "${}".format(millify(total_canceled_order - total_canceled_order_last_year)),
     help = 'Value of orders that were canceled this year, compared to last year',
     delta_color="inverse",
     )
@@ -141,8 +142,8 @@ with col41:
 st.markdown("---")
 
 # Target this year
-target_sales = 80000
-current_sales = 30000
+target_sales = 11000000
+current_sales = 4000000
 delta = target_sales - current_sales
 values = [current_sales, delta]
 colors = ["#e05628", "#C7C9CE"]
@@ -155,49 +156,92 @@ fig_target_sales.update_traces(hoverinfo='value+percent',
 
 fig_target_sales.add_annotation(x= 0.5, y = 0.5,
                         text = '${}'.format(millify(target_sales)),
-                        font = dict(size = 50,family='sana serif', 
-                                    color='gray'),
+                        font = dict(size = 50,family='sans serif',),
                         showarrow = False)
-fig_target_sales.update_layout(
-    title_text = '<b>Target for this year</b>',
-    )
 
+# TEAM GOALS
+def plot_team_goals(team_name, target_revenue = 5000000, current_revenue = 500000):
+    fig = go.Figure(go.Indicator(
+        mode = "gauge+number+delta",
+        number = {'prefix': "$", 'font': {'size': 18}},
+        value = target_revenue,
+        title = {'text': team_name, 'font': {'size': 14}},
+        align = 'center',
+        domain = {'x': [0,1], 'y': [0,1]},
+        gauge = {
+            'shape': "bullet",
+            'axis': {'ticks': "", 'showticklabels': False,},
+            'bar': {'color': "rgba(0,0,0,0)", 'thickness': 0.3,},
+            'bgcolor': "rgba(0,0,0,0)",
+            'borderwidth': 0,
+            'steps' : [{'range': [0, current_revenue], 'color': "#e05628"},
+            {'range': [current_revenue, target_revenue], 'color': "#C7C9CE"}],
+            },
+            ))
+    fig.update_layout(autosize = True,
+                    height = 50,
+                    # width = 500,
+                    margin = dict(r=0.5, b=0.5, t=0.5))
+    return fig                 
 
 # filter options
-sales_by_product_category = sales_df.query("year == @this_year").groupby(by=['product_category_name_english']).sum()['payment_value'].sort_values(ascending=True)[:10]
-fig_product_sales = px.bar(sales_by_product_category,
-            x="payment_value",
-            y = sales_by_product_category.index,
-            title="<b>Sales by Product Category (Top Ten)</b>",
-            orientation='h',
-            color_discrete_sequence=["#e05628"],
-            template="plotly_white"
+sales_by_product_line = sales_df.query("year == @this_year").groupby(by=['product_category_name_english']).sum()['payment_value'].sort_values(ascending=True)[:10]
+fig_product_sales = px.bar(
+    data_frame = sales_by_product_line,
+    x="payment_value",
+    y = sales_by_product_line.index,
+    title="<b>Sales by Product Line</b>",
+    orientation='h',
+    color_discrete_sequence=["#e05628"],
+    template="plotly_white"
         )
-order_status_plot = sales_df.query("year == 2018")['order_status']
 
+sales_by_region = sales_df.query("year == @this_year").query("order_status == 'Delivered'").groupby('customer_state').sum()['payment_value'].sort_values(ascending=False)[:10]
+fig_sales_by_region = px.bar(
+    data_frame = sales_by_region,
+    y="payment_value",
+    x=sales_by_region.index,
+    title="<b>Sales by Region</b>",
+    orientation='v',
+    color_discrete_sequence=["#e05628"],
+    template="plotly_white"
+)
 # NEW ROW [1X2]
 st.subheader('Revenue Forcast')
-col_empty1, col12, col22, col_empty2 = st.columns([1,5,5,1], gap='small')
-with col_empty1:
-    st.empty()
+col12, col22 = st.columns([3,5], gap='medium')
+# with col_empty1:
+#     st.empty()
 with col12:
+    st.markdown("##### Target For This Year", unsafe_allow_html=True)
     st.plotly_chart(fig_target_sales, use_container_width=True)
 
 with col22:
+    st.markdown("##### Team Goals", unsafe_allow_html=True)
+    marketing = plot_team_goals(team_name='Marketing', target_revenue=3000000, current_revenue=1500000)
+    st.plotly_chart(marketing)
+    sales = plot_team_goals(team_name="Sales", target_revenue = 7000000, current_revenue=5000000)
+    st.plotly_chart(sales)
+    operations = plot_team_goals(team_name='Operations', target_revenue=2000000, current_revenue=1700000)
+    st.plotly_chart(operations)
+
+# with col_empty2:
+#     st.empty()
+
+st.markdown("---")
+st.subheader('Top Tens')
+dist_col1, dist_col2 = st.columns(2)
+with dist_col1:
     fig_product_sales.update_layout(
-    plot_bgcolor = "rgba(0,0,0,0)",
-    xaxis = (dict(showgrid=False)))
-    st.plotly_chart(fig_product_sales, use_container_width=False)
+        plot_bgcolor = "rgba(0,0,0,0)",
+        xaxis = (dict(showgrid=False)))
+    st.plotly_chart(fig_product_sales, use_container_width=True)
 
-with col_empty2:
-    st.empty()
+with dist_col2:
+    fig_sales_by_region.update_layout(
+        plot_bgcolor = "rgba(0,0,0,0)",
+        xaxis = (dict(showgrid=False)))
+    st.plotly_chart(fig_sales_by_region, use_container_width=True)
 
-
-# EXPERIMENT
-fig_product_sales.update_layout(
-    plot_bgcolor = "rgba(0,0,0,0)",
-    xaxis = (dict(showgrid=False)))
-st.plotly_chart(fig_product_sales, use_container_width=True)
 # with col22:
 #     st.plotly_chart(fig_order_status)
 
