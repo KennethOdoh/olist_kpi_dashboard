@@ -1,11 +1,10 @@
 # import required libraries
-from tkinter.ttk import Style
-from turtle import width
 import pandas as pd
 import numpy as np
 import streamlit as st
 import plotly.express as px
 import plotly.graph_objects as go
+from datetime import datetime
 from millify import millify
 
 # Page configurations
@@ -13,17 +12,26 @@ st.set_page_config(
     page_title = 'KPI Dashboard',
     page_icon = "📈",
     layout = 'wide',
-    
+
+
 )
-hide_st_style = """
+
+# ---------CUSTOM STYLE BEGINS--------------
+padding_top = 0
+custom_style = """
             <style>
+            .appview-container{
+                padding-top: {padding_top}rem;
+            }
             footer {visibility: hidden;}
             </style>
 """
-st.markdown(hide_st_style, unsafe_allow_html=True)
+st.markdown(custom_style, unsafe_allow_html=True)
+
+# ---------CUSTOM STYLE ENDS--------------
 
 # Load Data
-@st.cache
+# @st.cache
 def load_data(file_path, encoding='utf-8'):
     '''Fetch data from source file, and apply pandas-specific data type transformation.
     return: the transformed dataframe'''
@@ -69,6 +77,29 @@ st.sidebar.header("Filter Options")
 with st.sidebar:
     show_df = st.checkbox(label="Show Data Frame", value=True)
 
+    start_time = st.slider(label="Select Date Range", 
+    min_value = datetime(sales_df.year.min(), sales_df.month.min(), 1), 
+    max_value = datetime(sales_df.year.max(), sales_df.month.max(), 1), 
+    value = [datetime(sales_df.year.max(), 1, 1), datetime(sales_df.year.max(), 12, 31)], 
+    format="MM-YY")
+    order_status = st.multiselect(label="Order Status", 
+    options=sales_df.order_status.unique(),
+    default = "Delivered")
+
+    # more_filter_options = st.checkbox(label="Apply More Filters", value=False)
+
+
+with st.sidebar:
+    filter_by_state = st.multiselect(label = "Add State",
+    options=sales_df.customer_state.unique(),
+    key=1)
+
+    filter_by_product_line = st.multiselect(label = "Product Category",
+    options=sales_df.product_category_name_english.unique(), 
+    key=2)
+filtered_df = sales_df.query(
+    "customer_state == @filter_by_state & product_category_name_english == @filter_by_product_line")
+
 # FIRST HORIZONTAL BAR AT THE HOME PAGE
 st.markdown("#### 📈 Sales Dashboard `Home`")
 st.markdown("---")
@@ -105,7 +136,10 @@ def YoY_growth(this_year, last_year):
     yoy_growth = (difference / revenue_last_year) * 100
     return int(yoy_growth)
 
-
+# Average star rating
+def average_star_rating():
+    star_rating = sales_df.query("order_status == 'Delivered'").query("year == @this_year")['review_score'].astype('float64').mean()
+    return round(star_rating, 1)
 
 # FIRST ROW: 3 COLUMN CARD LAYOUT
 st.subheader('KPIs')
@@ -132,31 +166,28 @@ with col31:
     yoy_growth_last_year = YoY_growth(last_year, last_year-1) #YoY for previous year
     st.metric(label='YOY GROWTH', value = "{}%".format(millify(yoy_growth, 2)), 
     delta = "{}%".format(millify(int(yoy_growth - yoy_growth_last_year), 2)),
-    help = 'Year over Year Growth')
+    help = 'Percentage of revenue growth this year, compared to this time last year')
 
 with col41:
-    st.metric(label='Target', value = "$2M", delta= -12, help = 'Target for this year compared to that of last year')
+    star_rating_value = average_star_rating()
+    st.write("AVERAGE RATING")
+    st.metric(label='{}'.format('⭐'*int(star_rating_value)), value = "{}".format(star_rating_value), help = 'Average star rating from customers whose orders have been delivered to them this year')
 
 
 # SECOND HORIZONTAL BAR AT THE HOME PAGE [TARGET FOR THIS YEAR]
 st.markdown("---")
-
 # Target this year
 target_sales = 11000000
 current_sales = 4000000
 delta = target_sales - current_sales
 values = [current_sales, delta]
 colors = ["#e05628", "#C7C9CE"]
-fig_target_sales = go.Figure(data = go.Pie(values = values, hole = 0.8, marker_colors = colors))
-fig_target_sales.update_traces(hoverinfo='value+percent', 
-    textinfo = 'none',
-    # textfont_size=20, 
-    rotation= 45, 
-    showlegend = False,)
-
+fig_target_sales = go.Figure(data = go.Pie(values = values, hole = 0.75, marker_colors = colors, domain = {'x': [0,1], 'y': [0,1]},),
+layout={'height': 500, 'width' : 500,},)
+fig_target_sales.update_traces(hoverinfo='value+percent', textinfo = 'none', rotation= 45, showlegend = False,)
 fig_target_sales.add_annotation(x= 0.5, y = 0.5,
                         text = '${}'.format(millify(target_sales)),
-                        font = dict(size = 50,family='sans serif',),
+                        font = dict(size = 30,family='sans serif',),
                         showarrow = False)
 
 # TEAM GOALS
@@ -181,7 +212,8 @@ def plot_team_goals(team_name, target_revenue = 5000000, current_revenue = 50000
     fig.update_layout(autosize = True,
                     height = 50,
                     # width = 500,
-                    margin = dict(r=0.5, b=0.5, t=0.5))
+                    margin = dict(r=0, b=0.2, t=0.2)
+                    )
     return fig                 
 
 # filter options
@@ -212,11 +244,14 @@ col12, col22 = st.columns([3,5], gap='medium')
 # with col_empty1:
 #     st.empty()
 with col12:
-    st.markdown("##### Target For This Year", unsafe_allow_html=True)
+    # st.markdown("##### Target For This Year", unsafe_allow_html=True)
+    fig_target_sales.update_layout(
+        title = {'text': 'Target For This Year', 'font': {'size': 18}, 'x':0, 'y':1},
+        autosize = False, height=400, width=400, plot_bgcolor = "rgba(0,0,0,0)", xaxis = (dict(showgrid=False)))
     st.plotly_chart(fig_target_sales, use_container_width=True)
 
 with col22:
-    st.markdown("##### Team Goals", unsafe_allow_html=True)
+    st.markdown("###### Team Goals", unsafe_allow_html=True)
     marketing = plot_team_goals(team_name='Marketing', target_revenue=3000000, current_revenue=1500000)
     st.plotly_chart(marketing)
     sales = plot_team_goals(team_name="Sales", target_revenue = 7000000, current_revenue=5000000)
@@ -242,10 +277,5 @@ with dist_col2:
         xaxis = (dict(showgrid=False)))
     st.plotly_chart(fig_sales_by_region, use_container_width=True)
 
-# with col22:
-#     st.plotly_chart(fig_order_status)
-
 if show_df:
     st.dataframe(sales_df)
-
-# st.columns()
